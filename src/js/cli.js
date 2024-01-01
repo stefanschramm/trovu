@@ -15,6 +15,11 @@ program
   .action(validateData);
 
 program
+  .command('test-shortcuts')
+  .description('Run live tests for shortcuts')
+  .action(testShortcuts);
+
+program
   .command('compile-data')
   .description('Compile YAML data files to JSON')
   .requiredOption('-o, --output <path>', 'path to output file')
@@ -63,6 +68,36 @@ function validateData() {
   if (hasError) {
     // eslint-disable-next-line no-undef
     process.exit(1);
+  }
+}
+
+async function testShortcuts() {
+  const data = DataManager.load();
+  for (const namespace in data.shortcuts) {
+    const shortcuts = data.shortcuts[namespace];
+    for (const shortcut in shortcuts) {
+      if (shortcuts[shortcut].url === undefined) {
+        continue;
+      }
+      if (shortcuts[shortcut].tests === undefined) {
+        continue;
+      }
+      for (const testArguments in shortcuts[shortcut].tests) {
+        const pattern = shortcuts[shortcut].tests[testArguments];
+        const url = await UrlProcessor.replaceArguments(
+          shortcuts[shortcut].url,
+          testArguments.split(','),
+          {
+            country: 'de',
+          },
+        );
+        console.log(shortcut, testArguments, pattern, url);
+        const request = new Request(url);
+        const result = await fetch(request);
+        const text = await result.text();
+        console.log(text.match(pattern) !== null);
+      }
+    }
   }
 }
 
